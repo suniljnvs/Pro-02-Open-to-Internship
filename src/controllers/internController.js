@@ -1,85 +1,135 @@
-const internModel = require("../models/internModel");
+const mongoose = require("mongoose");
+const ObjectId = mongoose.Types.ObjectId;
+
 const collegeModel = require("../models/collegeModel");
+const internModel = require("../models/internModel");
 
 
-const createIntern = async function(req, res) {
+// This is all validation function and start is here
+let isValidRequestBodyData = function (requestBody) {
+    return Object.keys(requestBody).length > 0;
+}
+
+const isValidInterData = function (value) {
+    if (typeof value === "undefined" || value === null) return false;
+    if (typeof value === "string" && value.trim().length === 0) return false;
+    return true;
+};
+
+const isValidObjectId = function (objectId) {
+    return ObjectId.isValidInterData(objectId)
+}
+// Here Ends
+
+const internDetails = async function (req, res) {
+
     try {
-        let data = req.body;
 
-        let intern = await internModel.find(data)
+        let requestBody = req.body;
 
-        if (intern.length != 0) {
-            return res.status(409).send({ status: false, message: "That student are already applied for internship(please provide another name)." })
-        }
-        // name validation
-        if (!data.name) {
-            return res.status(400).send({ status: false, msg: " Please enter name for the internship (Required Field)" });
+        if (!isValidRequestBodyData(requestBody)) {
+            res.status(400).send({ status: false, message: "Invalid request parameter. Please provide intern details" });
+            return;
         }
 
-        let match = (!/^([a-zA-Z]+)$/.test(data.name))
-        if (!match) {
-            return res.status(400).send({ status: false, msg: "Please enter a valid name" });
+        let { name, mobile, email, collegeName } = requestBody;
+
+        // Validation is start 
+
+        if (!isValidInterData(name)) {
+            res.status(400).send({ status: false, message: "Name is required." });
+            return;
+        };
+
+        if (!isValidInterData(mobile)) {
+            res.status(400).send({ status: false, message: "Mobile is required." });
+            return;
+        };
+
+        if (!isValidInterData(email)) {
+            res.status(400).send({ status: false, message: "Email is required." });
+            return;
+        };
+
+        if (!isValidInterData(collegeName)) {
+            res.status(400).send({ status: false, message: "Colllege name is required." });
+            return;
+        };
+
+        if (!/^\d{10}$/.test(mobile)) {
+            res.status(400).send({ status: false, message: "Please provide valid mobile number" });
+            return;
         }
 
-        //mobile  validation
-        if (!data.mobile) {
-            return res.status(400).send({ status: false, msg: " Please enter mobile for the internship(Required Field)" });
-        }
+        let isMobilelUsed = await internModel.findOne({ mobile });
+        if (isMobilelUsed) {
+            res.status(400).send({ status: false, message: `Try another mobile number ${isMobilelUsed["mobile"]} is already used.` });
+            return;
+        };
 
-        let mob = /^[0-9]{10}$/.test(data.mobile);
-        if (!mob) {
-            return res.status(400).send({ status: false, msg: "please enter valid mobile number" });
-        }
+        if (!(/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/).test(email)) {
+            res.status(400).send({ status: false, message: "Please provide valid email" })
+            return
+        };
 
-        // mobile duplication 
-        let mobiledb = await internModel.findOne({ mobile: data.mobile }, { mobile: 1, _id: 0 });
-        if (mobiledb) {
-            return res.status(400).send({ status: false, msg: "We are sorry; this mobile is already registered" });
-        }
+        let isEmailUsed = await internModel.findOne({ email });  // email:email
+        if (isEmailUsed) {
+            res.status(400).send({ status: false, message: `Try another email ${isEmailUsed["email"]} is already used.` });
+            return;
+        };
 
-        //email validation
-        if (!data.email) {
-            return res.status(400).send({ status: false, msg: " Please enter email for the internship (Required Field)" });
+        let validCollege = await collegeModel.findOne({ name: collegeName });
+        if (!validCollege) return res.status(404).send({ status: false, message: 'College name not found' });
 
-        }
-        let check = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(
-            data.email
-        );
-        if (!check) {
-            return res.status(400).send({ status: false, msg: " Please enter valid emailid" });
-        }
-        if (!(data.email === String(data.email).toLowerCase())) {
-            return res.status(400).send({ status: false, msg: "Capital letters are not allowed in emailid" });
-        }
+        delete requestBody["collegeName"];  // here delete collegeName 
+        requestBody["collegeId"] = validCollege._id;
 
-        // email duplication check
-        let emaildb = await internModel.findOne({ email: data.email }, { email: 1, _id: 0 });
-        if (emaildb) {
-            return res.status(400).send({ status: false, msg: "We are sorry; this email is already registered" });
-        }
-        if (!data.collegeName) {
-            return res.status(400).send({ status: false, msg: "please enter college name" });
-        }
-        let collegeData = await collegeModel.find({ name: data.collegeName }).select({ _id: true })
+        let data = await internModel.create(requestBody);
+        res.status(201).send({ status: true, message: "Intern is created", data: data })
 
-        if (collegeData.length == 0) {
-            return res.status(404).send({ status: false, msg: "Requested college doesn't exist." })
-        }
-
-        let internData = await internModel.create({ name: data.name, email: data.email, mobile: data.mobile, collegeId: collegeData[0] });
-        let name = internData.name;
-        let email = internData.email;
-        let mobile = internData.mobile;
-        let collegeId = internData.collegeId._id;
-        let isDeleted = internData.isDeleted;
-
-        let allData = { isDeleted, name, email, mobile, collegeId }
-
-        res.status(201).send({ status: true, data: allData });
-
-    } catch (err) {
-        res.status(500).send({ msg: "Internal Server Error", error: err.message });
+    } catch (error) {
+        res.status(500).send({ status: false, message: error.message })
     }
 };
 
-module.exports.createIntern = createIntern;
+
+let getCollegeDetails = async function (req, res) {
+
+    try {
+        let collegeName = req.query.collegeName;   // variable name collegeName es liye hai because collegeName present in query
+
+        if (!isValidInterData(collegeName)) {
+            res.status(400).send({ status: false, message: 'kindly input the query parameter' });
+            return;
+        }
+
+        let allFilterData = {};
+
+        let findCollegeData = await collegeModel.findOne({ name: collegeName });
+        if (!findCollegeData) {
+            return res.status(404).send({ status: false, message: 'college has not been registered yet' })
+        };
+
+        allFilterData["name"] = findCollegeData["name"];
+        allFilterData["fullName"] = findCollegeData["fullName"];
+        allFilterData["logoLink"] = findCollegeData["logoLink"];
+
+        let findIntern = await internModel.find({ collegeId: findCollegeData }).select({ name: true, email: true, mobile: true });  // FindOut collegeId in collegeModel
+
+        if (findIntern.length === 0) {
+            res.status(404).send({ status: false, message: `No students have applied for internship from ${collegeName} college` });
+            return;
+        }
+
+        allFilterData["interest"] = findIntern; // Here create a new Object key
+
+        res.status(200).send({ status: true, message: "All intern present with college details", data: allFilterData })
+    } catch (error) {
+        res.status(500).send({ status: false, message: error.message })
+    }
+}
+
+
+
+
+module.exports = { internDetails, getCollegeDetails }

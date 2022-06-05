@@ -1,0 +1,26 @@
+{
+    "name": "project2-internship",
+    "version": "1.0.0",
+    "description": "Open to Intern Project",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "nodemon src/index.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/suniljnvs/project2-Internship.git"
+    },
+    "dependencies": {
+        "axios": "^0.27.2",
+        "body-parser": "^1.20.0",
+        "email-validator": "^2.0.4",
+        "express": "^4.18.1",
+        "mongoose": "^6.3.2",
+        "nodemon": "^2.0.16",
+        "router": "^1.3.7",
+        "to": "^0.2.9",
+        "update": "^0.7.4",
+        "validator": "^13.7.0"
+    }
+}

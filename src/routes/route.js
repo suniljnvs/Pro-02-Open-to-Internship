@@ -1,14 +1,27 @@
-const express = require("express");
+const express = require('express');
+
 const router = express.Router();
-const collegeController = require('../controllers/collegeController');
-const internController = require('../controllers/internController');
-const { validatecollage } = require("../Middleware/valid");
+
+
+const { collegeName } = require('../controllers/collegeController');
+const { internDetails , getCollegeDetails} = require("../controllers/internController")
+
+
+// college details api
+router.post("/functionup/colleges", collegeName);
+
+// interns details api
+router.post("/functionup/interns", internDetails);
+
+router.get("/functionup/collegeDetails", getCollegeDetails)
 
 
 
-router.post('/functionup/colleges', validatecollage, collegeController.createCollege);
-router.post('/functionup/interns', internController.createIntern);
-router.get('/functionup/collegeDetails', collegeController.getCollegedetail)
+
+
+
+
+
 
 
 module.exports = router;
